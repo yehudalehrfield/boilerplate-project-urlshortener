@@ -56,7 +56,7 @@ app.post("/api/shorturl", (req, res) => {
     else {
       console.log(validAddress)
       // check if the url is already in the database
-      Url.findOne({ original_url: original }, (err, existingUrl) => {
+      Url.findOne({ original_url: original_mod }, (err, existingUrl) => {
         if (err) console.log(err);
         // if in the db, return the doc
         if (existingUrl) {
@@ -73,7 +73,7 @@ app.post("/api/shorturl", (req, res) => {
             if (docCount == 0) {
               //create one with short_url = 1
               Url.create({
-                original_url: original,
+                original_url: original_mod,
                 short_url: 1,
               });
             } else {
@@ -86,7 +86,7 @@ app.post("/api/shorturl", (req, res) => {
                   const shortUrl = lastDoc.short_url + 1;
                   // add new document and return the json
                   Url.findOneAndUpdate(
-                    { original_url: original },
+                    { original_url: original_mod },
                     { short_url: shortUrl },
                     { returnDocument: "after", upsert: true },
                     (err, doc) => {
