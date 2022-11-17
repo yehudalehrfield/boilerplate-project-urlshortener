@@ -106,6 +106,15 @@ app.post("/api/shorturl", (req, res) => {
   });
 });
 
+app.get("/api/shorturl/:num", (req, res) => {
+  // res.json({shorturl:req.params.num})
+  Url.findOne({short_url:req.params.num}, (err,doc) => {
+    if (err) console.log(err);
+    res.redirect(`//${doc.original_url}`);
+    console.log(`shorturl ${req.params.num} redirected to: ${doc.original_url}`)
+  })
+});
+
 app.listen(port, function () {
   console.log(`Listening on port ${port}`);
 });
