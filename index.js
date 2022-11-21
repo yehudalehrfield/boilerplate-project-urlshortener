@@ -40,11 +40,10 @@ app.get("/", function (req, res) {
 app.get("/api/hello", function (req, res) {
   res.json({ greeting: "hello API" });
 });
+const VALID_ADDRESS_PROTOCALL = /^(http:\/\/|https:\/\/)(www.)?\w/i;
+const REMOVE_PROTOCALL = /^(https|http)?:\/\//i;
 
 const isValidUrl = async (url) => {
-  const VALID_ADDRESS_PROTOCALL = /^(http:\/\/|https:\/\/)(www.)?\w/i;
-  const REMOVE_PROTOCALL = /^(https|http)?:\/\//i;
-
   isValidSyntax = VALID_ADDRESS_PROTOCALL.test(url);
   if (!isValidSyntax) return false;
 
@@ -64,19 +63,20 @@ const insertNewUrlDoc = (long, short) => {
     original_url: long,
     short_url: short,
   });
-}
+};
 
 const getUrl = async (url) => {
   let existingUrl = await Url.findOne({ original_url: url });
   return existingUrl;
 };
 
+// url shortener
 app.post("/api/shorturl", async (req, res) => {
   // get original url
   const original = req.body.url;
   let valid = await isValidUrl(original);
   // if original url is not valid
-  if (! valid) {
+  if (!valid) {
     res.json({ error: "invalid url" });
   } else {
     // check if url exists
@@ -109,89 +109,24 @@ app.post("/api/shorturl", async (req, res) => {
           short_url: largestShortUrl + 1,
         });
       }
-      let newExistingUrl = await Url.findOne({original_url:original});
+      let newExistingUrl = await Url.findOne({ original_url: original });
       res.json({
-        original_url:newExistingUrl.original_url,
-        short_url:newExistingUrl.short_url
+        original_url: newExistingUrl.original_url,
+        short_url: newExistingUrl.short_url,
       });
     }
   }
   // res.redirect("/");
 });
 
-// url shortener
-app.post("/api/shorturl_v1", (req, res) => {
-  let original = req.body.url;
-  const REMOVE_PROTOCALL = /^https?:\/\//i;
-  const original_mod = original.replace(REMOVE_PROTOCALL, "");
-
-  dns.lookup(original_mod, (err, validAddress) => {
-    // if (err) console.log('Error:' + err);
-    if (err) {
-      console.log("Invalid url");
-      res.json({ error: "invalid url" });
-    } else {
-      console.log(validAddress);
-      // check if the url is already in the database
-      Url.findOne({ original_url: original_mod }, (err, existingUrl) => {
-        if (err) console.log(err);
-        // if in the db, return the doc
-        if (existingUrl) {
-          res.json({
-            original_url: existingUrl.original_url,
-            short_url: existingUrl.short_url,
-          });
-        } else {
-          // url not in the db
-          // check if there are any documents
-          Url.estimatedDocumentCount((err, docCount) => {
-            if (err) console.log(err);
-            // if there are no documents
-            if (docCount == 0) {
-              //create one with short_url = 1
-              Url.create({
-                original_url: original_mod,
-                short_url: 1,
-              });
-            } else {
-              // documents exists
-              // get largest shorturl and create a new document with a shorturl (incremented)
-              Url.findOne({})
-                .sort({ short_url: "desc" })
-                .exec((err, lastDoc) => {
-                  if (err) console.log(err);
-                  const shortUrl = lastDoc.short_url + 1;
-                  // add new document and return the json
-                  Url.findOneAndUpdate(
-                    { original_url: original_mod },
-                    { short_url: shortUrl },
-                    { returnDocument: "after", upsert: true },
-                    (err, doc) => {
-                      if (err) console.log(err);
-                      res.json({
-                        original_url: doc.original_url,
-                        short_url: doc.short_url,
-                      });
-                    }
-                  );
-                });
-            }
-          });
-        }
-      });
-    }
-  });
-});
-
-app.get("/api/shorturl/:num", (req, res) => {
-  // res.json({shorturl:req.params.num})
-  Url.findOne({ short_url: req.params.num }, (err, doc) => {
-    if (err) console.log(err);
-    res.redirect(`//${doc.original_url}`);
-    console.log(
-      `shorturl ${req.params.num} redirected to: ${doc.original_url}`
-    );
-  });
+app.get("/api/shorturl/:num", async (req, res) => {
+  // get address to redirect to (from shorturl)
+  let redirect = await Url.findOne({ short_url: req.params.num });
+  // remove protocol to allow for redirection
+  let redirectFormatted = redirect.original_url.replace(REMOVE_PROTOCALL, "");
+  // redirect
+  res.redirect(`//${redirectFormatted}`);
+  console.log(`shorturl ${req.params.num} redirected to: ${redirectFormatted}`);
 });
 
 app.listen(port, function () {
