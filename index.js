@@ -4,7 +4,8 @@ const cors = require("cors");
 const app = express();
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
-const dns = require("dns");
+const dnsResolver = require("dns").promises;
+// const promisify = require("util").promisify;
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -40,10 +41,35 @@ app.get("/api/hello", function (req, res) {
   res.json({ greeting: "hello API" });
 });
 
-// url shortener
-app.post("/api/shorturl", (req, res) => {
-  let original = req.body.url;
+const isValidUrl = async (url) => {
+  const VALID_ADDRESS_PROTOCALL = /^(http:\/\/|https:\/\/)(www.)?\w/i;
+  const REMOVE_PROTOCALL = /^(https|http)?:\/\//i;
 
+  isValidSyntax = VALID_ADDRESS_PROTOCALL.test(url);
+  if (!isValidSyntax) return false;
+
+  try{
+    let urlAddress = await dnsResolver.resolve(url.replace(REMOVE_PROTOCALL,""));
+    return !!urlAddress;
+  }
+  catch{
+    return false;
+  }
+  return false;
+};
+
+app.post("/api/shorturl", async (req, res) => {
+  const original = req.body.url;
+  
+  console.log(`Checking ${original}: ${await isValidUrl(original)}`);
+
+  res.redirect("/");
+
+});
+
+// url shortener
+app.post("/api/shorturl_v1", (req, res) => {
+  let original = req.body.url;
   const REMOVE_PROTOCALL = /^https?:\/\//i;
   const original_mod = original.replace(REMOVE_PROTOCALL, "");
 
@@ -51,10 +77,9 @@ app.post("/api/shorturl", (req, res) => {
     // if (err) console.log('Error:' + err);
     if (err) {
       console.log("Invalid url");
-      res.json({error:"invalid url"})
-    }
-    else {
-      console.log(validAddress)
+      res.json({ error: "invalid url" });
+    } else {
+      console.log(validAddress);
       // check if the url is already in the database
       Url.findOne({ original_url: original_mod }, (err, existingUrl) => {
         if (err) console.log(err);
@@ -108,11 +133,13 @@ app.post("/api/shorturl", (req, res) => {
 
 app.get("/api/shorturl/:num", (req, res) => {
   // res.json({shorturl:req.params.num})
-  Url.findOne({short_url:req.params.num}, (err,doc) => {
+  Url.findOne({ short_url: req.params.num }, (err, doc) => {
     if (err) console.log(err);
     res.redirect(`//${doc.original_url}`);
-    console.log(`shorturl ${req.params.num} redirected to: ${doc.original_url}`)
-  })
+    console.log(
+      `shorturl ${req.params.num} redirected to: ${doc.original_url}`
+    );
+  });
 });
 
 app.listen(port, function () {
