@@ -48,53 +48,75 @@ const isValidUrl = async (url) => {
   isValidSyntax = VALID_ADDRESS_PROTOCALL.test(url);
   if (!isValidSyntax) return false;
 
-  try{
-    let urlAddress = await dnsResolver.resolve(url.replace(REMOVE_PROTOCALL,""));
+  try {
+    let urlAddress = await dnsResolver.resolve(
+      url.replace(REMOVE_PROTOCALL, "")
+    );
     return !!urlAddress;
-  }
-  catch{
+  } catch {
     return false;
   }
   return false;
 };
 
-const getUrl = async (url) => {
-  let existingUrl = await Url.findOne({original_url:url});
-  return existingUrl;
+const insertNewUrlDoc = (long, short) => {
+  Url.create({
+    original_url: long,
+    short_url: short,
+  });
 }
+
+const getUrl = async (url) => {
+  let existingUrl = await Url.findOne({ original_url: url });
+  return existingUrl;
+};
 
 app.post("/api/shorturl", async (req, res) => {
   // get original url
   const original = req.body.url;
-  
+  let valid = await isValidUrl(original);
   // if original url is not valid
-  if (!isValidUrl(original)) {
-    res.json({error: "invalid url"})
+  if (! valid) {
+    res.json({ error: "invalid url" });
+  } else {
+    // check if url exists
+    let existingUrl = await getUrl(original);
+    // if exists
+    if (existingUrl) {
+      // return existing url with shorturl
+      res.json({
+        original_url: existingUrl.original_url,
+        short_url: existingUrl.short_url,
+      });
+    } else {
+      // insert new entry into db
+      // determine number of documents in collection
+      let numDocs = await Url.estimatedDocumentCount({});
+      // if no entries yet in the db
+      if (!numDocs) {
+        // insert original with shorturl=1
+        await Url.create({
+          original_url: original,
+          short_url: 1,
+        });
+      } else {
+        // get largest shorturl and increment
+        // insert original url with short url (incremented)
+        let latestDoc = await Url.findOne({}).sort({ short_url: "desc" });
+        let largestShortUrl = latestDoc.short_url;
+        await Url.create({
+          original_url: original,
+          short_url: largestShortUrl + 1,
+        });
+      }
+      let newExistingUrl = await Url.findOne({original_url:original});
+      res.json({
+        original_url:newExistingUrl.original_url,
+        short_url:newExistingUrl.short_url
+      });
+    }
   }
-  
-  // DOES THERE NEED TO BE AN ELSE HERE?
-
-  // check if url exists
-  let existingUrl = await getUrl(original);
-  // if exists 
-  if (existingUrl) {
-    // return existing url with shorturl
-    res.json({
-      original_url:existingUrl.original_url,
-      short_url: existingUrl.short_url
-    });
-  } 
-  // else
-  console.log("Nothing yet. Need to insert into database.")
-    // insert new entry into db
-    // if no entries yet in the db
-      // insert original with shorturl=1
-    // else
-      // get largest shorturl and increment
-      // insert original url with increments short url
-
   // res.redirect("/");
-
 });
 
 // url shortener
