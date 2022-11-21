@@ -58,12 +58,42 @@ const isValidUrl = async (url) => {
   return false;
 };
 
+const getUrl = async (url) => {
+  let existingUrl = await Url.findOne({original_url:url});
+  return existingUrl;
+}
+
 app.post("/api/shorturl", async (req, res) => {
+  // get original url
   const original = req.body.url;
   
-  console.log(`Checking ${original}: ${await isValidUrl(original)}`);
+  // if original url is not valid
+  if (!isValidUrl(original)) {
+    res.json({error: "invalid url"})
+  }
+  
+  // DOES THERE NEED TO BE AN ELSE HERE?
 
-  res.redirect("/");
+  // check if url exists
+  let existingUrl = await getUrl(original);
+  // if exists 
+  if (existingUrl) {
+    // return existing url with shorturl
+    res.json({
+      original_url:existingUrl.original_url,
+      short_url: existingUrl.short_url
+    });
+  } 
+  // else
+  console.log("Nothing yet. Need to insert into database.")
+    // insert new entry into db
+    // if no entries yet in the db
+      // insert original with shorturl=1
+    // else
+      // get largest shorturl and increment
+      // insert original url with increments short url
+
+  // res.redirect("/");
 
 });
 
